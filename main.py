@@ -37,9 +37,17 @@ if __name__ == "__main__":
                   [1, 2, 3],
                   [1, 2, 3]])
 
+    P = np.array([[1, 1, 1],
+                  [1, 1, 1],
+                  [1, 1, 1],
+                  [1, 1, 1],
+                  [1, 1, 1],
+                  [1, 1, 1],
+                  [1, 1, 1]])
+
     # Konstrukcja
     ntr = Nutrinator(N)
     # Dodanie wektorów
     ntr.fit(n_b, n_s)
     # obliczenie S dla danej macierzy
-    print(ntr.compute(A))
+    print(ntr.compute(A, P))
