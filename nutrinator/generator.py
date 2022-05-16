@@ -32,8 +32,8 @@ class Generator:
 
     def generate_days(self, size: int, previous: np.ndarray = np.array([])) -> Tuple[np.ndarray, np.ndarray]:
         used_recipes, used_count = np.unique(previous, return_counts=True)
-        forbidden_set = set(used_recipes[used_count > self.config.max_occurence])
-        current_recipes = list(self.recipes - forbidden_set)
+        overused_recipes = set(used_recipes[used_count > self.config.max_occurence])
+        current_recipes = list(self.recipes - overused_recipes)
         recipes = np.empty((size, *self.shape), dtype=int)
         # don't know how to do it fully in numpy, if we generate all days at once we can:
         #   - have not enough recipes with replace=False
@@ -42,7 +42,7 @@ class Generator:
             recipes[sample, ...] = self.__generate_recipes(current_recipes)
         return recipes, self.__generate_portions(size)
 
-    def __generate_recipes(self, allowed: Set[int]) -> np.ndarray:
+    def __generate_recipes(self, allowed: List[int]) -> np.ndarray:
         return self.generator.choice(allowed, self.shape, replace=False)
 
     def __generate_portions(self, size: int) -> np.ndarray:
