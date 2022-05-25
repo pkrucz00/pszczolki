@@ -14,7 +14,7 @@ def default_taboo() -> Set[int]:
 @dataclass
 class GeneratorConfig:
     # If we do the greedy way, we won't need days
-    # days: int = 7
+    days: int = 7
     dishes: int = 5
     max_occurence: int = 2
     recipes_size: int = 100
@@ -23,14 +23,15 @@ class GeneratorConfig:
 
 
 class Generator:
-    def __init__(self, config: GeneratorConfig):
+    def __init__(self, config: GeneratorConfig = GeneratorConfig()):
         self.config = config
         self.shape = (self.config.dishes,)
         # self.shape = (self.config.days, self.config.dishes)
         self.recipes = {i for i in range(config.recipes_size)} - config.taboo
         self.generator = np.random.default_rng()
 
-    def generate_days(self, size: int, previous: np.ndarray = np.array([])) -> Tuple[np.ndarray, np.ndarray]:
+    def generate_days(self, size: int = None, previous: np.ndarray = np.array([])) -> Tuple[np.ndarray, np.ndarray]:
+        size = size if size else self.config.days  # przepraszam, że to tak brzydko wygląda :c
         used_recipes, used_count = np.unique(previous, return_counts=True)
         overused_recipes = set(used_recipes[used_count > self.config.max_occurence])
         current_recipes = list(self.recipes - overused_recipes)
@@ -48,3 +49,5 @@ class Generator:
     def __generate_portions(self, size: int) -> np.ndarray:
         return self.generator.choice(self.config.portion_set, (size, *self.shape), replace=True)
 
+    def generate_neighbours(self, best_results: List, n: int):
+        return [self.generate_days(self.config.days) for _ in range(n)]
