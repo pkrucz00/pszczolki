@@ -1,4 +1,6 @@
 import numpy as np
+from numpy import genfromtxt
+
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
@@ -55,13 +57,14 @@ if __name__ == "__main__":
     dishes_per_day = 3
 
     # TODO load nutrients from a file
-    nutrients_of_recipes = np.array([[20, 30, 20, 10],
-                                      [40, 50, 20, 20],
-                                      [50, 10, 10, 30],
-                                      [10, 40, 30, 10],
-                                      [40, 50, 20, 20],
-                                      [50, 10, 10, 30],
-                                      [10, 40, 30, 10]])
+    nutrients_of_recipes = genfromtxt("csv/nutrients.csv", delimiter=",")
+                            # np.array([[20, 30, 20, 10],
+                            #           [40, 50, 20, 20],
+                            #           [50, 10, 10, 30],
+                            #           [10, 40, 30, 10],
+                            #           [40, 50, 20, 20],
+                            #           [50, 10, 10, 30],
+                            #           [10, 40, 30, 10]])
     nutrient_demand = np.array([[100, 100, 100, 100],
                                 [100, 100, 100, 100],
                                 [100, 100, 100, 100],
