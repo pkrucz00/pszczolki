@@ -10,31 +10,42 @@ from nutrinator.nutrionator import Nutrinator
 
 @dataclass
 class BeesConfig:
-    n: int = 10
+    n: int = 20
     m: int = 5
     e: int = 2
-    nsp: int = 15
-    nep: int = 6
+    nsp: int = 3
+    nep: int = 5
 
 
 def stop_criterion(i):
     return i < 10
 
 
-def generate_new_results(results: List[Tuple], result_evals: List[float],
+def join_results(*results: List[tuple]):
+    return np.vstack(tuple(A for A, _ in results)), \
+           np.vstack(tuple(P for _, P in results))
+
+
+def generate_new_results(recipes: np.ndarray, portions: np.ndarray,
+                         result_evals: List[float],
                          generator: Generator,
                          conf: BeesConfig = BeesConfig()):
-    best_results_ind = np.argsort(result_evals)
+    results_indices = np.argsort(result_evals)
+    result_recipes, result_portions = recipes[results_indices[::-1]], portions[results_indices[::-1]]
 
-    m_best_results = [results[i] for i in best_results_ind[:conf.m]]
-    e_best_results = m_best_results[:conf.e]
-    nsp_neighbouring_results = generator.generate_neighbours(m_best_results, conf.nsp)
-    nep_neighbouring_results = generator.generate_neighbours(e_best_results, conf.nep)
-    random_results = [generator.generate_days() for _ in range(conf.n - conf.m)]
+    e_result_recipes, e_result_portions = result_recipes[:conf.e, ...], result_portions[:conf.e, ...]
+    m_result_recipes, m_result_portions = result_recipes[conf.e:conf.m, ...], result_portions[conf.e:conf.m, ...]
 
-    return m_best_results + \
-           nsp_neighbouring_results + nep_neighbouring_results + \
-           random_results
+    # n_nep + n_nsp + n_rand = n
+    n_nep, n_nsp, n_rand = conf.nep * conf.e,  \
+                           conf.nsp * conf.m - conf.nep * conf.e,  \
+                           conf.n - conf.m*conf.nsp
+
+    nep_neighbouring_results = generator.generate_neighbours(e_result_recipes, e_result_portions, n_nep)
+    nsp_neighbouring_results = generator.generate_neighbours(m_result_recipes, m_result_portions, n_nsp)
+    random_results = generator.generate_days(n_rand)
+
+    return join_results(nsp_neighbouring_results, nep_neighbouring_results, random_results)
 
 
 # n - number of initial results
@@ -42,13 +53,13 @@ def generate_new_results(results: List[Tuple], result_evals: List[float],
 # e - number of elite bees
 # d - number of days
 def bees_algorithm(generator: Generator, fitted_nutrinator: Nutrinator, b_conf: BeesConfig = BeesConfig()):
-    results = [generator.generate_days() for _ in range(b_conf.n)]
-    result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in results]
+    recipes, portions = generator.generate_days(b_conf.n)
+    result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in zip(recipes, portions)]
     i = 0
     while stop_criterion(i):
-        results = generate_new_results(results, result_evaluations, generator, b_conf)
-        result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in results]
-        print(len(results))
+        recipes, portions = generate_new_results(recipes, portions, result_evaluations, generator, b_conf)
+        result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in zip(recipes, portions)]
+        print(len(recipes))
         i += 1
 
 
@@ -56,15 +67,7 @@ if __name__ == "__main__":
     days = 7
     dishes_per_day = 3
 
-    # TODO load nutrients from a file
     nutrients_of_recipes = genfromtxt("csv/nutrients.csv", delimiter=",")
-                            # np.array([[20, 30, 20, 10],
-                            #           [40, 50, 20, 20],
-                            #           [50, 10, 10, 30],
-                            #           [10, 40, 30, 10],
-                            #           [40, 50, 20, 20],
-                            #           [50, 10, 10, 30],
-                            #           [10, 40, 30, 10]])
     nutrient_demand = np.array([[100, 100, 100, 100],
                                 [100, 100, 100, 100],
                                 [100, 100, 100, 100],

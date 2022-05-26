@@ -25,13 +25,12 @@ class GeneratorConfig:
 class Generator:
     def __init__(self, config: GeneratorConfig = GeneratorConfig()):
         self.config = config
-        self.shape = (self.config.dishes,)
-        # self.shape = (self.config.days, self.config.dishes)
+        # self.shape = (self.config.dishes,)
+        self.shape = (self.config.days, self.config.dishes)
         self.recipes = {i for i in range(config.recipes_size)} - config.taboo
         self.generator = np.random.default_rng()
 
-    def generate_days(self, size: int = None, previous: np.ndarray = np.array([])) -> Tuple[np.ndarray, np.ndarray]:
-        size = size if size else self.config.days  # przepraszam, że to tak brzydko wygląda :c
+    def generate_days(self, size: int, previous: np.ndarray = np.array([])) -> Tuple[np.ndarray, np.ndarray]:
         used_recipes, used_count = np.unique(previous, return_counts=True)
         overused_recipes = set(used_recipes[used_count > self.config.max_occurence])
         current_recipes = list(self.recipes - overused_recipes)
@@ -49,5 +48,5 @@ class Generator:
     def __generate_portions(self, size: int) -> np.ndarray:
         return self.generator.choice(self.config.portion_set, (size, *self.shape), replace=True)
 
-    def generate_neighbours(self, best_results: List, n: int):
-        return [self.generate_days(self.config.days) for _ in range(n)]
+    def generate_neighbours(self, recipes: np.ndarray, portions: np.ndarray, n: int):
+        return self.generate_days(n)  #TODO change it to a real generator
