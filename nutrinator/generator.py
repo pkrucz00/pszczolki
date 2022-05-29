@@ -14,7 +14,7 @@ def default_taboo() -> Set[int]:
 @dataclass
 class GeneratorConfig:
     # If we do the greedy way, we won't need days
-    # days: int = 7
+    days: int = 7
     dishes: int = 5
     max_occurence: int = 2
     recipes_size: int = 100
@@ -23,10 +23,10 @@ class GeneratorConfig:
 
 
 class Generator:
-    def __init__(self, config: GeneratorConfig):
+    def __init__(self, config: GeneratorConfig = GeneratorConfig()):
         self.config = config
-        self.shape = (self.config.dishes,)
-        # self.shape = (self.config.days, self.config.dishes)
+        # self.shape = (self.config.dishes,)
+        self.shape = (self.config.days, self.config.dishes)
         self.recipes = {i for i in range(config.recipes_size)} - config.taboo
         self.generator = np.random.default_rng()
 
@@ -48,3 +48,5 @@ class Generator:
     def __generate_portions(self, size: int) -> np.ndarray:
         return self.generator.choice(self.config.portion_set, (size, *self.shape), replace=True)
 
+    def generate_neighbours(self, recipes: np.ndarray, portions: np.ndarray, n: int):
+        return self.generate_days(n)  #TODO change it to a real generator

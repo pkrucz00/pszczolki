@@ -10,9 +10,6 @@ if __name__ == "__main__":
     n = 3
     R = [0, 1, 2, 3]
 
-    # Tę mapę dajemy w konstruktorze.
-    # Kminiłem, jak to zamienić na NDArray, ale i tak w implementacji wyszło,
-    # żę pętli for nie jestem w stanie uniknąć (patrz komentarz nad `__d_n`)
     N = np.array([[20, 30, 20, 10],
                  [40, 50, 20, 20],
                  [50, 10, 10, 30],
