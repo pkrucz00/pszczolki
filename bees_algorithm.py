@@ -14,10 +14,10 @@ from nutrinator.nutrionator import Nutrinator
 @dataclass
 class BeesConfig:
     n: int = 100
-    m: int = 40
+    m: int = 30
     e: int = 10
-    nsp: int = 3
-    nep: int = 5
+    nsp: int = 50
+    nep: int = 100
 
 
 def stop_criterion(i):
@@ -87,36 +87,64 @@ def bees_algorithm(generator: Generator, fitted_nutrinator: Nutrinator, b_conf: 
     recipes, portions = generator.generate_days(b_conf.n)
     result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in zip(recipes, portions)]
     best_iter_score = []
-    bar = tqdm(range(100))
+    bar = tqdm(range(1000000))
+    stagnation = 0
+    stagnation_limit = 10000
+
+    best_recipes = None
+    best_portions = None
+
+    current_best_score = 99999999999999999999999
     for _ in bar:
         recipes, portions = generate_new_results(recipes, portions, result_evaluations, generator, b_conf)
         result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in zip(recipes, portions)]
-        best_iter_score.append((min(result_evaluations)))
-        bar.set_description(f"Best this iteration: {best_iter_score[-1]}")
-    return best_iter_score
+        best_iter = min(result_evaluations)
+
+        best_iter_score.append(best_iter)
+        if best_iter < current_best_score:
+            index = result_evaluations.index(best_iter)
+            best_recipes = recipes[index, ...]
+            best_portions = portions[index, ...]
+            current_best_score = best_iter
+            stagnation = 0
+        else:
+            stagnation += 1
+
+        if stagnation_limit <= stagnation:
+            print(f'Result stagnated for {stagnation}')
+            break
+        bar.set_description(f"Best this iteration: {best_iter_score[-1]}, current best {current_best_score}")
+    return best_iter_score, best_recipes, best_portions
 
 
 if __name__ == "__main__":
     days = 7
+
+
     dishes_per_day = 3
 
     nutrients_of_recipes = genfromtxt("csv/nutrients.csv", delimiter=",")
-    nutrient_demand = np.array([[100, 100, 100, 100],
-                                [100, 100, 100, 100],
-                                [100, 100, 100, 100],
-                                [100, 100, 100, 100],
-                                [100, 100, 100, 100],
-                                [100, 100, 100, 100],
-                                [100, 100, 100, 100]])
+    #               kcal, fat, fat, protein
+    needed_macro = [2456, 70, 327, 150]
+    # gamma should make every part equal in score
+    gamma = np.array([(1 / 2456), (1 / 70), (1 / 327), (1 / 150)], dtype=float)
+
+    nutrient_demand = np.array([needed_macro for _ in range(7)], dtype=float)
     nutrient_special_demand = np.zeros((days, dishes_per_day, 4))
 
     generator = Generator(GenConf(days=days,
                                   dishes=dishes_per_day,
                                   recipes_size=nutrients_of_recipes.shape[0]))
-    nutrinator = Nutrinator(nutrients_of_recipes)
+    nutrinator = Nutrinator(nutrients_of_recipes, gamma=gamma)
     nutrinator.fit(nutrient_demand, nutrient_special_demand)
 
-    story = bees_algorithm(generator, nutrinator)
+    story, recipes, portions = bees_algorithm(generator, nutrinator)
+
+    print('Recipes')
+    print(recipes)
+    print('')
+    print('Portions')
+    print(portions)
 
     plt.plot(story)
     plt.show()

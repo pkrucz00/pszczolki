@@ -8,8 +8,8 @@ APP_KEY = "56203261276e6c85344964c122ad3e5d"
 
 NUTRIENT_JSON_NAMES = ["ENERC_KCAL", "FAT", "CHOCDF", "PROCNT"]
 
-OUTPUT_NUTRIENT_FILE = "csv/nutrients.csv"
-OUTPUT_INGREDIENT_FILE = "csv/ingredients.csv"
+OUTPUT_NUTRIENT_FILE = "csv/nutrients2.csv"
+OUTPUT_INGREDIENT_FILE = "csv/ingredients2.csv"
 
 
 def get_nutrients_and_ingredients(search_string):
