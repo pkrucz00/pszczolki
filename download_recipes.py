@@ -62,8 +62,9 @@ def get_nutrients_and_ingredients(search_string, url):
         recipe_names.append(recipe["label"])
 
         nutrients = recipe["totalNutrients"]
-        nutrient_table = get_nutrient_table(nutrients, recipe["yield"])
-        ingredient_table = {ingredient["food"]: ingredient["quantity"]
+        servings = recipe["yield"]
+        nutrient_table = get_nutrient_table(nutrients, servings)
+        ingredient_table = {ingredient["food"]: (ingredient["quantity"] / servings)
                             for ingredient in recipe["ingredients"] if ingredient["quantity"] > 0}
 
         result_nutrients.append(nutrient_table)
