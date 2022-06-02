@@ -67,7 +67,7 @@ if __name__ == "__main__":
     days = 7
     dishes_per_day = 3
 
-    nutrients_of_recipes = genfromtxt("csv/nutrients.csv", delimiter=",")
+    nutrients_of_recipes = genfromtxt("data/csv/nutrients.csv", delimiter=",")
     nutrient_demand = np.array([[100, 100, 100, 100],
                                 [100, 100, 100, 100],
                                 [100, 100, 100, 100],
