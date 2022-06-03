@@ -13,7 +13,7 @@ class BeesConfig:
     n: int = 20
     m: int = 5
     e: int = 2
-    nsp: int = 3
+    nsp: int = 2
     nep: int = 5
 
 
@@ -33,19 +33,19 @@ def generate_new_results(recipes: np.ndarray, portions: np.ndarray,
     results_indices = np.argsort(result_evals)
     result_recipes, result_portions = recipes[results_indices[::-1]], portions[results_indices[::-1]]
 
-    e_result_recipes, e_result_portions = result_recipes[:conf.e, ...], result_portions[:conf.e, ...]
-    m_result_recipes, m_result_portions = result_recipes[conf.e:conf.m, ...], result_portions[conf.e:conf.m, ...]
+    e_result = result_recipes[:conf.e, ...], result_portions[:conf.e, ...]
+    m_result = result_recipes[conf.e:conf.m, ...], result_portions[conf.e:conf.m, ...]
 
     # n_nep + n_nsp + n_rand = n
     n_nep, n_nsp, n_rand = conf.nep * conf.e,  \
                            conf.nsp * conf.m - conf.nep * conf.e,  \
-                           conf.n - conf.m*conf.nsp
+                           conf.n - conf.m * (conf.nsp + 1)
 
-    nep_neighbouring_results = generator.generate_neighbours(e_result_recipes, e_result_portions, n_nep)
-    nsp_neighbouring_results = generator.generate_neighbours(m_result_recipes, m_result_portions, n_nsp)
+    nep_neighbouring_results = generator.generate_neighbours(*e_result, n_nep)
+    nsp_neighbouring_results = generator.generate_neighbours(*m_result, n_nsp)
     random_results = generator.generate_days(n_rand)
 
-    return join_results(nsp_neighbouring_results, nep_neighbouring_results, random_results)
+    return join_results(e_result, m_result, nsp_neighbouring_results, nep_neighbouring_results, random_results)
 
 
 # n - number of initial results
