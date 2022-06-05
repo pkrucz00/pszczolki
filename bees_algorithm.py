@@ -32,7 +32,7 @@ def stop_criterion(i):
 class Solver:
     _MACRO_SIZE = 4
 
-    def __init__(self, generator_config: GenConf, config: BeesConfig, file: str = "csv/nutrients.csv"):
+    def __init__(self, generator_config: GenConf, config: BeesConfig, file: str = "data/csv/nutrients.csv"):
         self._bee_config = config
         self._gen_config = generator_config
         nutrients_of_recipes = genfromtxt(file, delimiter=",")
