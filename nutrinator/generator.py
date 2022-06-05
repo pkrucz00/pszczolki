@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List, Set, Tuple
@@ -49,11 +51,15 @@ class Generator:
         return self.generator.choice(self.config.portion_set, (size, *self.shape), replace=True)
 
     def generate_neighbour(self, recipes: np.ndarray, portions: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # do note that we change recipes and portions in place
+        recipes = np.copy(recipes)
+        portions = np.copy(portions)
+
         neighbour = self.__generate_neighbour(recipes, portions)
         while not self.__check_constraints(neighbour[0]):
             neighbour = self.__generate_neighbour(recipes, portions)
 
-        return neighbour[0], neighbour[1]
+        return neighbour
 
     # def generate_neighbours(self, recipes: np.ndarray, portions: np.ndarray, n: int):
     #     # return self.generate_days(n)  #TODO change it to a real generator
@@ -69,23 +75,44 @@ class Generator:
     #             new_portions[i*n+j, ...] = neighbour[1]
     #
     #     return new_recipes, new_portions
-
-    def __generate_neighbour(self, recipes: np.ndarray, portions: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def __generate_day_and_dish(self):
         day = self.generator.integers(0, self.config.days)
         dish = self.generator.integers(0, self.config.dishes)
+        return day, dish
 
-        case = self.generator.choice([1, 2])
-        if case == 1:
-            old_recipe = recipes[day][dish]
-            new_recipe = self.generator.choice(list(set(self.recipes) - {old_recipe}))
-            recipes[day][dish] = new_recipe
-            portions[day][dish] = 1
-        else:
-            old_portion = portions[day][dish]
-            new_portion = self.generator.choice(list(set(self.config.portion_set) - {old_portion}))
-            portions[day][dish] = new_portion
-
+    def __generate_nhbd_change_dish(self, recipes: np.ndarray, portions: np.ndarray):
+        day, dish = self.__generate_day_and_dish()
+        old_recipe = recipes[day][dish]
+        recipes[day][dish] = self.generator.choice(list(set(self.recipes) - {old_recipe}))
+        portions[day][dish] = 1
         return recipes, portions
+
+    def __generate_nhbd_change_portion(self, recipes: np.ndarray, portions: np.ndarray):
+        day, dish = self.__generate_day_and_dish()
+        old_portion = portions[day][dish]
+        portions[day][dish] = self.generator.choice(list(set(self.config.portion_set) - {old_portion}))
+        return recipes, portions
+
+    def __generate_nhbd_swap_dishes(self, recipes: np.ndarray, portions: np.ndarray):
+        day1, dish1 = self.__generate_day_and_dish()
+        day2, dish2 = self.__generate_day_and_dish()
+        while day1 == day2 and dish1 == dish2:
+            day2, dish2 = self.__generate_day_and_dish()
+
+        buf_recipe, buf_portion = recipes[day1, dish1], portions[day1, dish1]
+        recipes[day1, dish1], portions[day1, dish1] = recipes[day2, dish2], portions[day2, dish2]
+        recipes[day2, dish2], portions[day2, dish2] = buf_recipe, buf_portion
+        return recipes, portions
+
+    def __generate_neighbour(self, recipes: np.ndarray, portions: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        nhbd = random.choice(['SWAP', 'PORTION', 'RECIPE'])
+
+        if nhbd == 'SWAP':
+            return self.__generate_nhbd_swap_dishes(recipes, portions)
+        if nhbd == 'PORTION':
+            return self.__generate_nhbd_change_portion(recipes, portions)
+        if nhbd == 'RECIPE':
+            return self.__generate_nhbd_change_dish(recipes, portions)
 
     def __create_dict(self, recipes: np.ndarray) -> dict:
         data = dict()

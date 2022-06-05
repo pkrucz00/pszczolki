@@ -16,7 +16,7 @@ class Nutrinator:
 
     def __init__(self, N: np.ndarray, gamma=None):
         self.N = N
-        self.gamma = gamma.T if gamma else np.array([1, 1, 1, 1]).T
+        self.gamma = gamma.T if gamma is not None else np.array([1, 1, 1, 1]).T
         self.n_b = None
         self.n_s = None
 
