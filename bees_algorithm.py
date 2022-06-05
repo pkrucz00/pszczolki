@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 from numpy import genfromtxt
 
 from dataclasses import dataclass, field
@@ -8,44 +10,73 @@ from nutrinator.generator import Generator
 from nutrinator.generator import GeneratorConfig as GenConf
 from nutrinator.nutrionator import Nutrinator
 
+
 @dataclass
 class BeesConfig:
-    n: int = 20
-    m: int = 5
-    e: int = 2
+    n: int = 100
+    m: int = 40
+    e: int = 10
     nsp: int = 3
     nep: int = 5
 
 
 def stop_criterion(i):
-    return i < 10
-
-
-def join_results(*results: List[tuple]):
-    return np.vstack(tuple(A for A, _ in results)), \
-           np.vstack(tuple(P for _, P in results))
+    return i < 10000
 
 
 def generate_new_results(recipes: np.ndarray, portions: np.ndarray,
                          result_evals: List[float],
                          generator: Generator,
                          conf: BeesConfig = BeesConfig()):
+
+    ## Selecting best and elite sites for neighbourhood search
     results_indices = np.argsort(result_evals)
     result_recipes, result_portions = recipes[results_indices[::-1]], portions[results_indices[::-1]]
 
     e_result_recipes, e_result_portions = result_recipes[:conf.e, ...], result_portions[:conf.e, ...]
     m_result_recipes, m_result_portions = result_recipes[conf.e:conf.m, ...], result_portions[conf.e:conf.m, ...]
 
-    # n_nep + n_nsp + n_rand = n
-    n_nep, n_nsp, n_rand = conf.nep * conf.e,  \
-                           conf.nsp * conf.m - conf.nep * conf.e,  \
-                           conf.n - conf.m*conf.nsp
+    ## Neighbourhood search
+    shape = (generator.config.days, generator.config.dishes)
+    nep_neighbouring_recipes = np.empty((conf.e, *shape), dtype=int)
+    nep_neighbouring_portions = np.empty((conf.e, *shape), dtype=float)
+    nsp_neighbouring_recipes = np.empty((conf.m - conf.e, *shape), dtype=int)
+    nsp_neighbouring_portions = np.empty((conf.m - conf.e, *shape), dtype=float)
 
-    nep_neighbouring_results = generator.generate_neighbours(e_result_recipes, e_result_portions, n_nep)
-    nsp_neighbouring_results = generator.generate_neighbours(m_result_recipes, m_result_portions, n_nsp)
-    random_results = generator.generate_days(n_rand)
+    # Neighbourhood search for elite sites
+    for idx, (recipe, portion) in enumerate(zip(e_result_recipes, e_result_portions)):
+        nep_neighbouring_recipes[idx, ...] = recipe
+        nep_neighbouring_portions[idx, ...] = portion
+        best_fit = nutrinator.compute(recipe, portion)
+        for i in range(conf.nep):
+            # ma zwracac tupla
+            recruited_bee = generator.generate_neighbour(recipe, portion)
+            fit = nutrinator.compute(recruited_bee[0], recruited_bee[1])
+            if fit < best_fit:
+                nep_neighbouring_recipes[idx, ...] = recruited_bee[0]
+                nep_neighbouring_portions[idx, ...] = recruited_bee[1]
+                best_fit = fit
 
-    return join_results(nsp_neighbouring_results, nep_neighbouring_results, random_results)
+    # Neighbourhood search for best sites
+    for idx, (recipe, portion) in enumerate(zip(m_result_recipes, m_result_portions)):
+        nsp_neighbouring_recipes[idx, ...] = recipe
+        nsp_neighbouring_portions[idx, ...] = portion
+        best_fit = nutrinator.compute(recipe, portion)
+        for i in range(conf.nsp):
+            recruited_bee = generator.generate_neighbour(recipe, portion)
+            fit = nutrinator.compute(recruited_bee[0], recruited_bee[1])
+            if fit < best_fit:
+                nsp_neighbouring_recipes[idx, ...] = recruited_bee[0]
+                nsp_neighbouring_portions[idx, ...] = recruited_bee[1]
+                best_fit = fit
+
+    ## Random global search
+    random_results = generator.generate_days(conf.n-conf.m)
+
+    best_recipes = np.concatenate((nep_neighbouring_recipes, nsp_neighbouring_recipes, random_results[0]), axis=0)
+    best_portions = np.concatenate((nsp_neighbouring_recipes, nsp_neighbouring_portions, random_results[1]), axis=0)
+
+    return best_recipes, best_portions
 
 
 # n - number of initial results
@@ -55,12 +86,14 @@ def generate_new_results(recipes: np.ndarray, portions: np.ndarray,
 def bees_algorithm(generator: Generator, fitted_nutrinator: Nutrinator, b_conf: BeesConfig = BeesConfig()):
     recipes, portions = generator.generate_days(b_conf.n)
     result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in zip(recipes, portions)]
-    i = 0
-    while stop_criterion(i):
+    best_iter_score = []
+    bar = tqdm(range(100))
+    for _ in bar:
         recipes, portions = generate_new_results(recipes, portions, result_evaluations, generator, b_conf)
         result_evaluations = [fitted_nutrinator.compute(A, P) for A, P in zip(recipes, portions)]
-        print(len(recipes))
-        i += 1
+        best_iter_score.append((min(result_evaluations)))
+        bar.set_description(f"Best this iteration: {best_iter_score[-1]}")
+    return best_iter_score
 
 
 if __name__ == "__main__":
@@ -83,4 +116,7 @@ if __name__ == "__main__":
     nutrinator = Nutrinator(nutrients_of_recipes)
     nutrinator.fit(nutrient_demand, nutrient_special_demand)
 
-    bees_algorithm(generator, nutrinator)
+    story = bees_algorithm(generator, nutrinator)
+
+    plt.plot(story)
+    plt.show()
