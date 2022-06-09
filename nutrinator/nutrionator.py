@@ -1,5 +1,6 @@
 import numpy as np
 
+from typing import Optional
 
 class Nutrinator:
     """
@@ -16,13 +17,15 @@ class Nutrinator:
 
     def __init__(self, N: np.ndarray, gamma=None):
         self.N = N
-        self.gamma = gamma.T if gamma else np.array([1, 1, 1, 1]).T
+        self.gamma = gamma.T if gamma is not None else np.array([1, 1, 1, 1]).T
         self.n_b = None
         self.n_s = None
 
-    def fit(self, n_b: np.ndarray, n_s: np.ndarray = None) -> None:
+    def fit(self, n_b: np.ndarray, n_s: Optional[np.ndarray] = None, gamma: Optional[np.ndarray] = None) -> None:
         self.n_b = n_b
         self.n_s = n_s if n_s is not None else np.zeros(n_b.shape)
+        if gamma is not None:
+            self.gamma = gamma.T
 
     def compute(self, A: np.ndarray, P: np.ndarray) -> float:
         return np.abs(self.gamma @ self.__d_n(A, P))

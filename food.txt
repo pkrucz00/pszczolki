@@ -17,6 +17,8 @@ chocolate
 cocoa
 cookie
 cream
+curry
+chilli
 croissant
 crumble
 dessert
