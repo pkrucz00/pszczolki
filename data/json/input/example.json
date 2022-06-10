@@ -1,0 +1,45 @@
+{
+  "user_data": {
+      "sex": "MALE",
+      "age": 22,
+      "weight": 75,
+      "height": 186,
+      "activity": "MODERATE"
+    },
+  "generation_input": {
+     "days": 7,
+     "dishes": 5,
+     "max_occurrence": 2
+  },
+  "special_demand": [
+       {
+         "day_number": 1,
+         "dish_number": 1,
+         "macros": {
+           "calories": -200,
+           "carb": 40,
+           "fat": -10,
+           "protein": 20
+         }
+       },
+       {
+         "day_number": 2,
+         "dish_number": 2,
+         "macros": {
+           "calories": 200,
+           "fat": 20
+         }
+       }
+     ],
+  "🐝Config": {
+    "n": 100,
+    "m": 30,
+    "e": 10,
+    "nsp": 50,
+    "nep": 100,
+    "max_iter": 10,
+    "max_stagnation": 10,
+    "include_original": false,
+    "use_best_of_all": false
+  }
+}

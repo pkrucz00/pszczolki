@@ -1,11 +1,13 @@
 import numpy as np
 import json
+import sys
+
 from tqdm import tqdm
 from numpy import genfromtxt
 from uuid import uuid4
 
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 from nutrinator.generator import Generator
 from nutrinator.generator import GeneratorConfig as GenConf
@@ -25,18 +27,16 @@ class BeesConfig:
     use_best_of_all: bool = False
 
 
-def stop_criterion(i):
-    return i < 10000
-
-
 class Solver:
     _MACRO_SIZE = 4
 
     def __init__(self, generator_config: GenConf, config: BeesConfig, file: str = "data/csv/nutrients.csv"):
+        nutrients_of_recipes = genfromtxt(file, delimiter=",")
+        generator_config.recipes_size = nutrients_of_recipes.shape[0]
+
+        self.nut = Nutrinator(nutrients_of_recipes)
         self._bee_config = config
         self._gen_config = generator_config
-        nutrients_of_recipes = genfromtxt(file, delimiter=",")
-        self.nut = Nutrinator(nutrients_of_recipes)
         self.generator = Generator(self._gen_config)
         self._fitted = False
 
@@ -175,46 +175,130 @@ class Solver:
         return recipes[indices[:size]], portions[indices[:size]]
 
 
-if __name__ == '__main__':
-    bee_config = BeesConfig(
-        max_iter=50000,
-        max_stagnation=3000,
-        include_original=True
-    )
+def load_json(path):
+    with open(path, "r", encoding="UTF-8") as file:
+        return json.loads(" ".join(file.readlines()))
 
+
+def load_recipe_json(path):
+    return {int(recipe_ind): recipe_name
+            for recipe_ind, recipe_name in load_json(path).items()}
+
+
+def get_recipe_matrix(recipe_indexes):
+    recipe_dict = load_recipe_json("data/json/recipe_names.json")
+    return [[recipe_dict[ind] for ind in recipes] for recipes in recipe_indexes]
+
+
+def print_title(number_of_days):
+    title = f"YOUR FOOD PLAN for {number_of_days} days"
+    print(title)
+    print("="*len(title))
+
+
+def print_dish(recipe, portion, indent="\t"):
+    print(indent + f"Name:     {recipe}")
+    print(indent + f"Portion:  {portion}")
+
+
+def print_plan_for_day(day_num, recipes, portions):
+    print(f"DAY {day_num}:")
+    for i, recipe_info in enumerate(zip(recipes, portions)):
+        recipe_num = i + 1
+        print(f"Dish no {recipe_num}:")
+        print_dish(*recipe_info)
+
+
+def pretty_print_output(recipe_indexes, portions):
+    print_title(recipe_indexes.shape[0])
+    for i, (recipes, portions) in enumerate(zip(get_recipe_matrix(recipe_indexes), portions)):
+        print_plan_for_day(i+1, recipes, portions)
+        print()
+
+
+def get_bees_config(bee_conf_dict):
+    bee_conf_obj = BeesConfig()
+    for attr_name, attr_value in bee_conf_dict.items():
+        setattr(bee_conf_obj, attr_name, attr_value)
+    return bee_conf_obj
+
+
+def get_generation_input(gen_conf_dict):
+    gen_conf_obj = GenConf()
+    for attr_name, attr_value in gen_conf_dict.items():
+        setattr(gen_conf_obj, attr_name, attr_value)
+    return gen_conf_obj
+
+
+def get_macros_vector(macro_info: Dict, nutri_ind_dict):
+    n = len(nutri_ind_dict)
+    result_vector = np.zeros(n)
+    for macro_name, macro_val in macro_info.items():
+        ind = nutri_ind_dict[macro_name]
+        result_vector[ind] = macro_val
+    return result_vector
+
+
+def compute_BMR(user_data: Dict):
+    sex, weight, height, age = \
+        user_data["sex"], user_data["weight"], user_data["height"], user_data["age"]
+
+    if sex not in ("MALE", "FEMALE"):
+        raise Exception(f"{sex} is not sex")
+
+    bmr_male = 88.36 + 13.4*weight + 4.8 * height - 5.68 * age
+    bmr_female = 447.6 + 9.25 * weight + 3.1 * height - 4.33 * age
+    return bmr_male if sex == "MALE" else bmr_female
+
+
+def compute_calories(user_data: Dict):
+    activity_multipliers = {"LOW": 1.2, "MODERATE": 1.5, "HIGH": 1.8}
+    activity = user_data["activity"]
+
+    if activity not in activity_multipliers:
+        raise Exception(f"{activity} is not in allowed activities")
+
+    return compute_BMR(user_data) * activity_multipliers[activity]
+
+
+def compute_demand(user_data: Dict):
+    def get_macro_formula(percent_of_cals, cals_per_gram):
+        return lambda total_cals: percent_of_cals * total_cals / cals_per_gram
+
+    carbs_func = get_macro_formula(0.5, 4)
+    fat_func = get_macro_formula(0.25, 9)
+    protein_func = get_macro_formula(0.25, 4)
+
+    calories = compute_calories(user_data)
+    result = [calories, fat_func(calories), carbs_func(calories), protein_func(calories)]
+    return [round(x) for x in result]
+
+def get_special_demand(special_demand_list, dimensions, nutri_ind_path="data/json/nutrient_indecies.json"):
+    nutri_ind_dict = load_json(nutri_ind_path)
+    no_nutrients = len(nutri_ind_dict)
+    result = np.zeros((*dimensions, no_nutrients))
+    for demand_info in special_demand_list:
+        i, j = demand_info["day_number"] - 1, demand_info["dish_number"] - 1
+        for macro_name, macro_val in demand_info["macros"].items():
+            k = nutri_ind_dict[macro_name]
+            result[i, j, k] = macro_val
+    return result
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("USAGE: bees_algorithm.py path/to/input.json")
+        exit(1)
+
+    input_dict = load_json(sys.argv[1])
+    bee_config = get_bees_config(input_dict["🐝Config"])
     gen_config = GenConf()
 
-    demand = [2456, 70, 327, 150]
+    demand = compute_demand(input_dict["user_data"])
+    special_demand = get_special_demand(input_dict.get("special_demand", []), (gen_config.days, gen_config.dishes))
 
     solver = Solver(gen_config, bee_config)
-
     solver.fit(demand)
 
-    output = solver.run(verbose=True)
-
-#
-# def gather_data(bees_set: List[BeesConfig]):
-#     days = 7
-#     dishes_per_day = 3
-#
-#
-#
-#     #               kcal, fat, fat, protein
-#     needed_macro = [2456, 70, 327, 150]
-#     # gamma should make every part equal in score
-#     gamma = np.array([(1 / 2456), (1 / 70), (1 / 327), (1 / 150)], dtype=float)
-#
-#     nutrinator = Nutrinator(nutrients_of_recipes, gamma=gamma)
-#
-#     nutrient_demand = np.array([needed_macro for _ in range(7)], dtype=float)
-#     nutrient_special_demand = np.zeros((days, dishes_per_day, 4))
-#
-#     nutrinator.fit(nutrient_demand, nutrient_special_demand)
-#
-#     for config in bees_set:
-#         generator = Generator(GenConf(days=days,
-#                                       dishes=dishes_per_day,
-#                                       recipes_size=nutrients_of_recipes.shape[0]))
-#
-#         data = bees_algorithm(generator, nutrinator)
-#         verbose_output(config, *data)
+    _, best_recipes, best_portions, _ = solver.run(verbose=True)
+    pretty_print_output(best_recipes, best_portions)
